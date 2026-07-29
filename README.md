@@ -7,6 +7,27 @@ app from EasyCharging.
 Per-panel power, voltage, current and temperature; grid voltage and frequency;
 energy today and lifetime; WiFi signal, uptime and error code.
 
+## Does this fit my inverter?
+
+If your inverter is monitored by the **Easy PV** app (`com.eway.easy_pv`, by
+**EasyCharging**), this is for you — whatever name is printed on the box.
+
+**Model numbers:** `VN2T06EU` (600W), `VN2T08EU` (800W), `VN2T10EU` (1000W),
+including suffixed variants such as `VN2T08EU-016212C`. The model and serial are
+in the Easy PV app under *Equipment Details*.
+
+**Sold as:** Eway, Solarsys, and various unbranded listings — these 600W/800W/
+1000W dual-MPPT **balcony solar microinverters** are resold widely on Amazon and
+AliExpress. One example is Amazon UK ASIN `B0H4Z3D1N9` ("Solarsys 800W Solar
+Micro Inverter Kit"). If the listing says *WiFi app monitoring*, *IP67*, *dual
+MPPT*, and ships with a **BC01** AC connector, it is very likely this family.
+
+**Symptoms that led you here:** no local API, nothing open on any port,
+no Modbus, no DTU, and no way to get the data out of the vendor cloud.
+
+Only the 800W model has been tested end to end so far. The others are handled
+by the same code path — reports welcome either way.
+
 ## Why this exists
 
 These inverters have **no local API**. Not an undocumented one — none at all:
