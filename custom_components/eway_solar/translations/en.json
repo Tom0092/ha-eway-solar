@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Eway solar micro-inverter",
+        "description": "Listening for telemetry on `{topic}`. If nothing was heard, the inverter is not yet publishing to this broker - check the DNS redirect described in the README - or enter the model and serial from the Easy PV app (Equipment Details) manually.",
+        "data": {
+          "model": "Equipment model (e.g. VN2T08EU-016212C)",
+          "serial": "Serial number (e.g. 260404555)"
+        }
+      }
+    },
+    "error": {
+      "not_discovered": "No telemetry seen. The inverter is not publishing to this broker yet."
+    },
+    "abort": {
+      "mqtt_unavailable": "The MQTT integration is not configured. Set it up first.",
+      "already_configured": "This inverter is already configured."
+    }
+  }
+}

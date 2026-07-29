@@ -1,0 +1,43 @@
+"""Constants for the Eway solar micro-inverter integration."""
+
+DOMAIN = "eway_solar"
+
+CONF_MODEL = "model"
+CONF_SERIAL = "serial"
+
+# The inverter publishes to /<model>/<serial>/data/post. Both parts are visible
+# in the Easy PV app under Equipment Details, but the config flow discovers them
+# from the wildcard below so nobody has to type them.
+# NB the LEADING SLASH is significant. The device publishes to
+# "/<model>/<serial>/data/post", which MQTT treats as five levels with an empty
+# first one, so "+/+/data/post" (four levels) never matches. Caught only by
+# testing against a real inverter.
+DISCOVERY_TOPIC = "/+/+/data/post"
+
+
+def data_topic(model: str, serial: str) -> str:
+    return f"/{model}/{serial}/data/post"
+
+
+# Per-MPPT-channel measurements. The device reports one JSON object per channel
+# in a list, tagged with "sort".
+#   key: (json field, name suffix, unit, device_class, state_class, icon)
+CHANNEL_SENSORS = {
+    "power": ("genPower", "power", "W", "power", "measurement", None),
+    "voltage": ("inputVoltage", "voltage", "V", "voltage", "measurement", None),
+    # NB the firmware capitalises this one differently to every other field.
+    "current": ("InputCurrent", "current", "A", "current", "measurement", None),
+    "temperature": ("temperature", "temperature", "°C", "temperature", "measurement", None),
+}
+
+# Whole-inverter measurements, taken from the first channel object since they
+# describe the AC side or the device as a whole.
+DEVICE_SENSORS = {
+    "grid_voltage": ("gridVoltage", "Grid voltage", "V", "voltage", "measurement", None),
+    "grid_frequency": ("gridFreq", "Grid frequency", "Hz", "frequency", "measurement", None),
+    "energy_today": ("genPowerToDay", "Energy today", "Wh", "energy", "total_increasing", None),
+    "energy_total": ("genPowerTotal", "Energy total", "kWh", "energy", "total_increasing", None),
+    "wifi_signal": ("rssi", "WiFi signal", "dBm", "signal_strength", "measurement", None),
+    "uptime": ("duration", "Uptime", "s", "duration", "measurement", None),
+    "error_code": ("errCode", "Error code", None, None, None, "mdi:alert-circle-outline"),
+}
