@@ -28,7 +28,33 @@ CHANNEL_SENSORS = {
     # NB the firmware capitalises this one differently to every other field.
     "current": ("InputCurrent", "current", "A", "current", "measurement", None),
     "temperature": ("temperature", "temperature", "°C", "temperature", "measurement", None),
+    # errCode is reported per channel, not once for the inverter, so a fault on
+    # one panel alone is invisible if you only read the first object.
+    "error_code": ("errCode", "error code", None, None, None, "mdi:alert-circle-outline"),
 }
+
+
+def describe_fault(code) -> str:
+    """Render errCode readably WITHOUT inventing meanings for the numbers.
+
+    EasyCharging publish no code table. The VN2T08EU/VN2T10EU/VN2T06EU manual
+    documents only LED flash patterns (green = exporting normally; red
+    short-short-long = recoverable warning; red long-short-short = probable
+    hardware fault), and the Easy PV app fetches its alarm text from the vendor
+    cloud rather than holding it locally.
+
+    So 0 is the only value whose meaning is certain - the inverter reports it
+    continuously while exporting normally. Everything else is shown verbatim and
+    labelled as unmapped, because a plausible-looking wrong translation of a
+    fault code is worse than no translation at all.
+    """
+    try:
+        code = int(code)
+    except (TypeError, ValueError):
+        return f"Unknown ({code!r})"
+    if code == 0:
+        return "OK"
+    return f"Fault code {code} (meaning not published by the vendor)"
 
 # Whole-inverter measurements, taken from the first channel object since they
 # describe the AC side or the device as a whole.

@@ -17,7 +17,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CHANNEL_SENSORS, CONF_MODEL, CONF_SERIAL, DEVICE_SENSORS, DOMAIN, data_topic
+from .const import (
+    CHANNEL_SENSORS,
+    CONF_MODEL,
+    CONF_SERIAL,
+    DEVICE_SENSORS,
+    DOMAIN,
+    data_topic,
+    describe_fault,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,6 +103,30 @@ async def async_setup_entry(
             entities["power_total"] = ent
             async_add_entities([ent])
         ent.set_value(round(total, 2))
+
+        # A readable fault line covering every channel, so you do not have to
+        # know which panel to look at or what a bare integer means.
+        faults = [(int(o.get("sort", 1)), o["errCode"])
+                  for o in payload if int(o.get("errCode", 0) or 0)]
+        ent = entities.get("fault")
+        if ent is None:
+            ent = EwaySensor(serial, device, "fault", "Fault",
+                             None, None, None, "mdi:alert-circle-outline")
+            entities["fault"] = ent
+            async_add_entities([ent])
+        ent.set_value(
+            "; ".join(f"panel {ch}: {describe_fault(c)}" for ch, c in faults)
+            if faults else "OK"
+        )
+        if faults:
+            # Logged loudly with the raw payload: matching these numbers against
+            # whatever the Easy PV app calls them at the same moment is the only
+            # route to a real code table, since the vendor publishes none.
+            _LOGGER.warning(
+                "Eway %s reported a fault: %s (raw: %s)", serial,
+                ", ".join(f"panel {ch} code {c}" for ch, c in faults),
+                msg.payload[:400],
+            )
 
     unsub = await mqtt.async_subscribe(hass, topic, _on_message)
     entry.async_on_unload(unsub)
