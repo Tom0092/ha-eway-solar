@@ -67,3 +67,12 @@ DEVICE_SENSORS = {
     "uptime": ("duration", "Uptime", "s", "duration", "measurement", None),
     "error_code": ("errCode", "Error code", None, None, None, "mdi:alert-circle-outline"),
 }
+
+# These two look device-wide but are reported PER MPPT CHANNEL, so they have to be
+# added up. Measured on a 2-panel VN2T08EU-016212C: channel 1 reported 1853 Wh /
+# 199.8 kWh while channel 2 simultaneously reported 1431 Wh / 164.457 kWh, and the
+# gap widens over time as the panels are not identically oriented. Reading either
+# channel alone silently loses most of the other one - the figures stay plausible,
+# they are just too low, which is the worst way for it to be wrong.
+# Everything else in DEVICE_SENSORS really is identical across channels.
+SUMMED_DEVICE_FIELDS = {"genPowerToDay", "genPowerTotal"}

@@ -23,6 +23,7 @@ from .const import (
     CONF_SERIAL,
     DEVICE_SENSORS,
     DOMAIN,
+    SUMMED_DEVICE_FIELDS,
     data_topic,
     describe_fault,
 )
@@ -88,9 +89,16 @@ async def async_setup_entry(
                 if ent is not None and field in obj:
                     ent.set_value(obj[field])
 
+        # The energy counters are per channel and have to be summed; the rest of
+        # DEVICE_SENSORS (grid voltage, frequency, rssi, uptime, errCode) genuinely
+        # describes the whole inverter and still comes from the first object.
         first = payload[0]
         for key, (field, *_rest) in DEVICE_SENSORS.items():
-            if field in first:
+            if field in SUMMED_DEVICE_FIELDS:
+                values = [float(o[field]) for o in payload if o.get(field) is not None]
+                if values:
+                    entities[key].set_value(round(sum(values), 3))
+            elif field in first:
                 entities[key].set_value(first[field])
 
         # Total across all channels: the device never reports this itself, and
