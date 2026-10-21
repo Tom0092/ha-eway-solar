@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CHANNEL_SENSORS,
@@ -52,6 +53,7 @@ async def async_setup_entry(
     async_add_entities(entities.values())
 
     known_channels: set[int] = set()
+    daily: dict[int, DailyYield] = {}
 
     @callback
     def _on_message(msg: mqtt.ReceiveMessage) -> None:
@@ -89,12 +91,26 @@ async def async_setup_entry(
                 if ent is not None and field in obj:
                     ent.set_value(obj[field])
 
+        # The daily counter can drop back to zero mid-day when the inverter
+        # restarts, so each channel goes through a DailyYield before summing.
+        today = dt_util.now().date()
+        for obj in payload:
+            if obj.get("genPowerToDay") is not None:
+                daily.setdefault(int(obj.get("sort", 1)), DailyYield()).update(
+                    float(obj["genPowerToDay"]), obj.get("duration"), today)
+
         # The energy counters are per channel and have to be summed; the rest of
         # DEVICE_SENSORS (grid voltage, frequency, rssi, uptime, errCode) genuinely
         # describes the whole inverter and still comes from the first object.
         first = payload[0]
         for key, (field, *_rest) in DEVICE_SENSORS.items():
-            if field in SUMMED_DEVICE_FIELDS:
+            if field == "genPowerToDay":
+                # Summed over every channel seen today, not just this payload,
+                # so a channel missing from one message does not dent the total.
+                values = [d.value for d in daily.values() if d.day == today]
+                if values:
+                    entities[key].set_value(round(sum(values), 3))
+            elif field in SUMMED_DEVICE_FIELDS:
                 values = [float(o[field]) for o in payload if o.get(field) is not None]
                 if values:
                     entities[key].set_value(round(sum(values), 3))
@@ -139,6 +155,50 @@ async def async_setup_entry(
     unsub = await mqtt.async_subscribe(hass, topic, _on_message)
     entry.async_on_unload(unsub)
     _LOGGER.debug("Subscribed to %s (unsub=%r)", topic, unsub)
+
+
+class DailyYield:
+    """One channel's genPowerToDay, kept from falling back during the day.
+
+    The inverter holds this counter in RAM and starts it from zero whenever it
+    boots. Normally that is once, at sunrise. But some units restart again as
+    the panel voltage fades at dusk and send a last message or two with the
+    fresh zero before going dark, so "Energy today" read 0 all evening, on some
+    inverters of an installation and not on others.
+
+    A restart shows as the uptime ("duration") going backwards. The yield from
+    before it is then carried forward instead of lost, which also covers a
+    restart in the middle of a dull day. A lower value WITHOUT a restart is
+    treated as a glitch and ignored, because carrying it forward would count
+    the same energy twice once the real value comes back. The day boundary is
+    the local calendar date: the device has no reset of its own until it next
+    boots.
+    """
+
+    def __init__(self) -> None:
+        self.day = None
+        self.offset = 0.0
+        self.last = 0.0
+        self.uptime: float | None = None
+
+    @property
+    def value(self) -> float:
+        return self.offset + self.last
+
+    def update(self, raw: float, uptime, today) -> None:
+        try:
+            uptime = float(uptime)
+        except (TypeError, ValueError):
+            uptime = None
+        if today != self.day:
+            self.day, self.offset, self.last = today, 0.0, raw
+        elif raw >= self.last:
+            self.last = raw
+        elif uptime is not None and self.uptime is not None and uptime < self.uptime:
+            self.offset += self.last
+            self.last = raw
+        if uptime is not None:
+            self.uptime = uptime
 
 
 class EwaySensor(SensorEntity):
