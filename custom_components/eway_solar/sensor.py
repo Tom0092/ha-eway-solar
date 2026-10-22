@@ -91,13 +91,13 @@ async def async_setup_entry(
                 if ent is not None and field in obj:
                     ent.set_value(obj[field])
 
-        # The daily counter can drop back to zero mid-day when the inverter
-        # restarts, so each channel goes through a DailyYield before summing.
+        # The daily counter can fall back to zero before the day is over, so
+        # each channel goes through a DailyYield before summing.
         today = dt_util.now().date()
         for obj in payload:
             if obj.get("genPowerToDay") is not None:
                 daily.setdefault(int(obj.get("sort", 1)), DailyYield()).update(
-                    float(obj["genPowerToDay"]), obj.get("duration"), today)
+                    float(obj["genPowerToDay"]), today)
 
         # The energy counters are per channel and have to be summed; the rest of
         # DEVICE_SENSORS (grid voltage, frequency, rssi, uptime, errCode) genuinely
@@ -160,45 +160,28 @@ async def async_setup_entry(
 class DailyYield:
     """One channel's genPowerToDay, kept from falling back during the day.
 
-    The inverter holds this counter in RAM and starts it from zero whenever it
-    boots. Normally that is once, at sunrise. But some units restart again as
-    the panel voltage fades at dusk and send a last message or two with the
-    fresh zero before going dark, so "Energy today" read 0 all evening, on some
-    inverters of an installation and not on others.
+    The inverter starts this counter from zero when it powers up at sunrise.
+    Some units also send a last message or two with the counter at zero as
+    the panel voltage fades at dusk, so "Energy today" read 0 all evening, on
+    some inverters of an installation and not on others.
 
-    A restart shows as the uptime ("duration") going backwards. The yield from
-    before it is then carried forward instead of lost, which also covers a
-    restart in the middle of a dull day. A lower value WITHOUT a restart is
-    treated as a glitch and ignored, because carrying it forward would count
-    the same energy twice once the real value comes back. The day boundary is
-    the local calendar date: the device has no reset of its own until it next
-    boots.
+    So within one local calendar day the value only ever rises; the first
+    message of a new day starts afresh. A real mid-day reset of the device
+    counter cannot be told apart from such a glitch (the payload carries no
+    boot counter: "duration" is lifetime operating time, not uptime), so the
+    displayed value then holds until the new count overtakes it. That
+    under-reports, but never shows a value the day did not reach.
     """
 
     def __init__(self) -> None:
         self.day = None
-        self.offset = 0.0
-        self.last = 0.0
-        self.uptime: float | None = None
+        self.value = 0.0
 
-    @property
-    def value(self) -> float:
-        return self.offset + self.last
-
-    def update(self, raw: float, uptime, today) -> None:
-        try:
-            uptime = float(uptime)
-        except (TypeError, ValueError):
-            uptime = None
+    def update(self, raw: float, today) -> None:
         if today != self.day:
-            self.day, self.offset, self.last = today, 0.0, raw
-        elif raw >= self.last:
-            self.last = raw
-        elif uptime is not None and self.uptime is not None and uptime < self.uptime:
-            self.offset += self.last
-            self.last = raw
-        if uptime is not None:
-            self.uptime = uptime
+            self.day, self.value = today, raw
+        elif raw > self.value:
+            self.value = raw
 
 
 class EwaySensor(SensorEntity):
