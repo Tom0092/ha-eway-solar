@@ -11,7 +11,7 @@ import json
 import logging
 
 from homeassistant.components import mqtt
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import RestoreSensor, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -51,7 +51,11 @@ async def async_setup_entry(
 
     entities: dict[str, EwaySensor] = {}
     for key, (field, name, unit, dcl, scl, icon) in DEVICE_SENSORS.items():
-        entities[key] = EwaySensor(serial, device, key, name, unit, dcl, scl, icon)
+        if field in SUMMED_DEVICE_FIELDS:
+            entities[key] = EnergySensor(serial, device, key, name, unit, dcl, scl, icon,
+                                         daily=field == "genPowerToDay")
+        else:
+            entities[key] = EwaySensor(serial, device, key, name, unit, dcl, scl, icon)
     async_add_entities(entities.values())
 
     known_channels: set[int] = set()
@@ -251,3 +255,49 @@ class EwaySensor(SensorEntity):
         self._attr_available = True
         if self.hass is not None:
             self.async_write_ha_state()
+
+
+class EnergySensor(EwaySensor, RestoreSensor):
+    """An energy counter that does not fall within its period, restarts included.
+
+    The per-channel trackers keep the sum from falling while Home Assistant
+    runs, but they live in memory and start empty after a restart. The first
+    message after one - a dusk zero, or one missing a channel - would then pull
+    the value down, and for "Energy total" (total_increasing) a fall is a meter
+    reset whose recovery the Energy dashboard counts a second time.
+
+    So the last value is restored and held as a floor: for the rest of its day
+    for "Energy today", for good for "Energy total". Should the device's
+    lifetime counter ever really start again from zero, the total holds until
+    the new count overtakes it. Restoring also means both show their value
+    straight after a restart, rather than "unknown" until sunrise.
+    """
+
+    def __init__(self, *args, daily: bool) -> None:
+        super().__init__(*args)
+        self._daily = daily
+        self._day = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self._attr_native_value is not None:
+            return  # a message got here before the restore
+        state = await self.async_get_last_state()
+        data = await self.async_get_last_sensor_data()
+        if state is None or data is None or data.native_value is None:
+            return
+        day = dt_util.as_local(state.last_updated).date()
+        if self._daily and day != dt_util.now().date():
+            return  # yesterday's yield is not today's
+        self._attr_native_value = data.native_value
+        self._day = day
+
+    @callback
+    def set_value(self, value) -> None:
+        today = dt_util.now().date()
+        held = self._attr_native_value
+        if (held is not None and float(value) < float(held)
+                and (self._day == today or not self._daily)):
+            value = held
+        self._day = today
+        super().set_value(value)
