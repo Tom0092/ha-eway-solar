@@ -16,7 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -190,6 +190,17 @@ async def async_setup_entry(
             cancel_quiet()
 
     entry.async_on_unload(_cancel_quiet)
+
+    # At midnight today's counters start again from zero, rather than showing
+    # yesterday's yield until the inverter wakes up after sunrise.
+    @callback
+    def _midnight(_now) -> None:
+        for ent in entities.values():
+            if isinstance(ent, EnergySensor):
+                ent.new_day()
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _midnight, hour=0, minute=0, second=0))
     _LOGGER.debug("Subscribed to %s (unsub=%r)", topic, unsub)
 
 
@@ -291,6 +302,12 @@ class EnergySensor(EwaySensor, RestoreSensor):
             return  # yesterday's yield is not today's
         self._attr_native_value = data.native_value
         self._day = day
+
+    @callback
+    def new_day(self) -> None:
+        """Midnight: "Energy today" starts again from zero."""
+        if self._daily:
+            self.set_value(0)
 
     @callback
     def set_value(self, value) -> None:
