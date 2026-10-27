@@ -54,6 +54,7 @@ async def async_setup_entry(
 
     known_channels: set[int] = set()
     daily: dict[int, DailyYield] = {}
+    lifetime: dict[int, float] = {}
 
     @callback
     def _on_message(msg: mqtt.ReceiveMessage) -> None:
@@ -92,28 +93,36 @@ async def async_setup_entry(
                     ent.set_value(obj[field])
 
         # The daily counter can fall back to zero before the day is over, so
-        # each channel goes through a DailyYield before summing.
+        # each channel goes through a DailyYield before summing. The lifetime
+        # counter is simply never allowed to fall: "Energy total" is
+        # total_increasing, and Home Assistant takes any drop of more than 10%
+        # as a meter reset, so one short or zeroed message would make the
+        # Energy dashboard count the whole lifetime yield again once the real
+        # value returns.
         today = dt_util.now().date()
         for obj in payload:
+            ch = int(obj.get("sort", 1))
             if obj.get("genPowerToDay") is not None:
-                daily.setdefault(int(obj.get("sort", 1)), DailyYield()).update(
+                daily.setdefault(ch, DailyYield()).update(
                     float(obj["genPowerToDay"]), today)
+            if obj.get("genPowerTotal") is not None:
+                lifetime[ch] = max(lifetime.get(ch, 0.0), float(obj["genPowerTotal"]))
+
+        # Summed over every channel seen (today, for the daily counter), not
+        # just this payload, so a channel missing from one message dents neither.
+        summed = {
+            "genPowerToDay": [d.value for d in daily.values() if d.day == today],
+            "genPowerTotal": list(lifetime.values()),
+        }
 
         # The energy counters are per channel and have to be summed; the rest of
         # DEVICE_SENSORS (grid voltage, frequency, rssi, uptime, errCode) genuinely
         # describes the whole inverter and still comes from the first object.
         first = payload[0]
         for key, (field, *_rest) in DEVICE_SENSORS.items():
-            if field == "genPowerToDay":
-                # Summed over every channel seen today, not just this payload,
-                # so a channel missing from one message does not dent the total.
-                values = [d.value for d in daily.values() if d.day == today]
-                if values:
-                    entities[key].set_value(round(sum(values), 3))
-            elif field in SUMMED_DEVICE_FIELDS:
-                values = [float(o[field]) for o in payload if o.get(field) is not None]
-                if values:
-                    entities[key].set_value(round(sum(values), 3))
+            if field in SUMMED_DEVICE_FIELDS:
+                if summed[field]:
+                    entities[key].set_value(round(sum(summed[field]), 3))
             elif field in first:
                 entities[key].set_value(first[field])
 
