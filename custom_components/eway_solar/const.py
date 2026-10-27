@@ -72,7 +72,10 @@ DEVICE_SENSORS = {
     "energy_today": ("genPowerToDay", "Energy today", "Wh", "energy", "total_increasing", None),
     "energy_total": ("genPowerTotal", "Energy total", "kWh", "energy", "total_increasing", None),
     "wifi_signal": ("rssi", "WiFi signal", "dBm", "signal_strength", "measurement", None),
-    "uptime": ("duration", "Uptime", "s", "duration", "measurement", None),
+    # "duration" is the inverter's lifetime operating time, not the time since
+    # it last started: it picks up in the morning where it stopped the evening
+    # before. The key stays "uptime" so existing entities keep their IDs.
+    "uptime": ("duration", "Operating time", "s", "duration", "measurement", None),
     "error_code": ("errCode", "Error code", None, None, None, "mdi:alert-circle-outline"),
 }
 

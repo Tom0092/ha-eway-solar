@@ -136,7 +136,7 @@ async def async_setup_entry(
         }
 
         # The energy counters are per channel and have to be summed; the rest of
-        # DEVICE_SENSORS (grid voltage, frequency, rssi, uptime, errCode) genuinely
+        # DEVICE_SENSORS (grid voltage, frequency, rssi, operating time, errCode) genuinely
         # describes the whole inverter and still comes from the first object.
         first = payload[0]
         for key, (field, *_rest) in DEVICE_SENSORS.items():

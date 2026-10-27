@@ -5,7 +5,7 @@ range of reseller badges (Solarsys and others) and monitored by the **Easy PV**
 app from EasyCharging.
 
 Per-panel power, voltage, current and temperature; grid voltage and frequency;
-energy today and lifetime; WiFi signal, uptime and error code.
+energy today and lifetime; WiFi signal, operating time and error code.
 
 ## Does this fit my inverter?
 
@@ -118,7 +118,8 @@ a small custom broker. Contributions welcome.
 ```
 
 One object per MPPT channel. `genPower` W, `genPowerToDay` Wh,
-`genPowerTotal` kWh, `duration` seconds since start. Note `inputVoltage` but
+`genPowerTotal` kWh, `duration` seconds of operation over the inverter's
+life (it does not restart from zero each morning). Note `inputVoltage` but
 `InputCurrent` — the capitalisation really is inconsistent.
 
 The device also **subscribes** to `info/get`, `ota/get`, `function/get`,
