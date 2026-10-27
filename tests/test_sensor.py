@@ -5,6 +5,7 @@ dusk behaviour reported in #3.
 """
 import json
 
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_mqtt_message,
@@ -87,3 +88,23 @@ async def test_new_day_starts_afresh(hass, mqtt_mock, freezer):
     await send(hass, channel(1, 5, 199.805), channel(2, 3, 164.46))
     assert value(hass, TODAY) == 8
     assert value(hass, TOTAL) == 364.265
+
+
+async def test_operating_time_is_named_for_what_it_is(hass, mqtt_mock, freezer):
+    freezer.move_to("2026-10-20 12:00:00+02:00")
+    await setup(hass)
+    await send(hass, channel(1, 1853, 199.8))
+    state = hass.states.get("sensor.eway_vn2t08eu_016212c_operating_time")
+    assert state.name == "Eway VN2T08EU-016212C Operating time"
+    assert float(state.state) == 10369356
+
+
+async def test_existing_uptime_entity_keeps_its_id(hass, mqtt_mock, freezer):
+    freezer.move_to("2026-10-20 12:00:00+02:00")
+    er.async_get(hass).async_get_or_create(
+        "sensor", DOMAIN, f"eway_{SERIAL}_uptime",
+        suggested_object_id="eway_vn2t08eu_016212c_uptime")
+    await setup(hass)
+    await send(hass, channel(1, 1853, 199.8))
+    state = hass.states.get("sensor.eway_vn2t08eu_016212c_uptime")
+    assert state.name == "Eway VN2T08EU-016212C Operating time"
