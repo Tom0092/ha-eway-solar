@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import deque
 
 from homeassistant.components import mqtt
 from homeassistant.components.sensor import RestoreSensor, SensorEntity
@@ -26,6 +27,7 @@ from .const import (
     DEVICE_SENSORS,
     DOMAIN,
     OFFLINE_AFTER,
+    RECENT_MESSAGES,
     SUMMED_DEVICE_FIELDS,
     data_topic,
     describe_fault,
@@ -54,6 +56,10 @@ async def async_setup_entry(
         entities[key] = _sensor(field, serial, device, key, name, unit, dcl, scl, icon)
     async_add_entities(entities.values())
 
+    # For the diagnostics download: the latest messages as they arrived, and
+    # what was made of them.
+    recent: deque[dict] = deque(maxlen=RECENT_MESSAGES)
+
     known_channels: set[int] = set()
     daily: dict[int, DailyYield] = {}
     lifetime: dict[int, float] = {}
@@ -75,6 +81,7 @@ async def async_setup_entry(
         except (ValueError, TypeError):
             _LOGGER.warning("Unparseable payload on %s", msg.topic)
             return
+        recent.append({"received": dt_util.utcnow().isoformat(), "payload": payload})
         if isinstance(payload, dict):
             payload = [payload]
         if not payload:
@@ -176,6 +183,9 @@ async def async_setup_entry(
                 ", ".join(f"panel {ch} code {c}" for ch, c in faults),
                 msg.payload[:400],
             )
+
+    hass.data[DOMAIN][entry.entry_id].update(
+        messages=recent, daily=daily, lifetime=lifetime, entities=entities)
 
     unsub = await mqtt.async_subscribe(hass, topic, _on_message)
     entry.async_on_unload(unsub)

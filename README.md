@@ -127,6 +127,15 @@ The device also **subscribes** to `info/get`, `ota/get`, `function/get`,
 integration never writes to them. Publishing to `reset` or `function` blind
 could reconfigure or factory-reset your inverter.
 
+## Reporting a problem
+
+Settings → Devices & Services → Eway Solar → ⋮ → **Download diagnostics**
+gives a JSON file with the last ten messages the inverter sent and what the
+integration made of them. Attach it to the issue; the serial number is taken
+out. The messages survive the inverter going dark for the night, so a download
+in the evening still shows what it sent at dusk - as long as Home Assistant
+has not restarted in between.
+
 ## Security note
 
 The weakness exploited here is in the inverter's firmware, not in Home
