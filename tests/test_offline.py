@@ -10,7 +10,7 @@ PREFIX = "sensor.eway_vn2t08eu_016212c_"
 POWER, PANEL_POWER = PREFIX + "solar_power", PREFIX + "panel_1_power"
 LIVE = [PREFIX + "grid_voltage", PREFIX + "panel_1_voltage",
         PREFIX + "panel_1_temperature", PREFIX + "wifi_signal", PREFIX + "fault"]
-UPTIME = PREFIX + "uptime"
+OPERATING_TIME = PREFIX + "operating_time"
 
 
 async def wait(hass, freezer, minutes):
@@ -35,7 +35,7 @@ async def test_quiet_inverter_reads_zero_power(hass, mqtt_mock, freezer):
     # Counters keep their value through the night.
     assert float(state(hass, TODAY)) == 3284
     assert float(state(hass, TOTAL)) == 364.257
-    assert float(state(hass, UPTIME)) == 10369356
+    assert float(state(hass, OPERATING_TIME)) == 10369356
 
 
 async def test_each_message_puts_it_off(hass, mqtt_mock, freezer):
