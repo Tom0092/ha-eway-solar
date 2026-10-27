@@ -51,11 +51,7 @@ async def async_setup_entry(
 
     entities: dict[str, EwaySensor] = {}
     for key, (field, name, unit, dcl, scl, icon) in DEVICE_SENSORS.items():
-        if field in SUMMED_DEVICE_FIELDS:
-            entities[key] = EnergySensor(serial, device, key, name, unit, dcl, scl, icon,
-                                         daily=field == "genPowerToDay")
-        else:
-            entities[key] = EwaySensor(serial, device, key, name, unit, dcl, scl, icon)
+        entities[key] = _sensor(field, serial, device, key, name, unit, dcl, scl, icon)
     async_add_entities(entities.values())
 
     known_channels: set[int] = set()
@@ -98,8 +94,8 @@ async def async_setup_entry(
                 continue
             known_channels.add(ch)
             for key, (field, suffix, unit, dcl, scl, icon) in CHANNEL_SENSORS.items():
-                ent = EwaySensor(serial, device, f"ch{ch}_{key}",
-                                 f"Panel {ch} {suffix}", unit, dcl, scl, icon)
+                ent = _sensor(field, serial, device, f"ch{ch}_{key}",
+                              f"Panel {ch} {suffix}", unit, dcl, scl, icon)
                 entities[f"ch{ch}_{key}"] = ent
                 new.append(ent)
         if new:
@@ -202,6 +198,13 @@ async def async_setup_entry(
     entry.async_on_unload(
         async_track_time_change(hass, _midnight, hour=0, minute=0, second=0))
     _LOGGER.debug("Subscribed to %s (unsub=%r)", topic, unsub)
+
+
+def _sensor(field: str, *args) -> EwaySensor:
+    """An EnergySensor for the two energy counters, a plain EwaySensor otherwise."""
+    if field in SUMMED_DEVICE_FIELDS:
+        return EnergySensor(*args, daily=field == "genPowerToDay")
+    return EwaySensor(*args)
 
 
 class DailyYield:
@@ -311,6 +314,8 @@ class EnergySensor(EwaySensor, RestoreSensor):
 
     @callback
     def set_value(self, value) -> None:
+        if value is None:
+            return
         today = dt_util.now().date()
         held = self._attr_native_value
         if (held is not None and float(value) < float(held)

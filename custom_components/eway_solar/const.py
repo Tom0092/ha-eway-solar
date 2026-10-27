@@ -39,6 +39,10 @@ CHANNEL_SENSORS = {
     # errCode is reported per channel, not once for the inverter, so a fault on
     # one panel alone is invisible if you only read the first object.
     "error_code": ("errCode", "error code", None, None, None, "mdi:alert-circle-outline"),
+    # The energy counters are per channel too; the device-wide figures are
+    # their sum. Per panel they show how differently oriented panels compare.
+    "energy_today": ("genPowerToDay", "energy today", "Wh", "energy", "total_increasing", None),
+    "energy_total": ("genPowerTotal", "energy total", "kWh", "energy", "total_increasing", None),
 }
 
 
