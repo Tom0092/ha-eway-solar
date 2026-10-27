@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "Eway {model} ({serial})",
     "step": {
       "user": {
         "title": "Eway solar micro-inverter",
@@ -8,6 +9,10 @@
           "model": "Equipment model (e.g. VN2T08EU-016212C)",
           "serial": "Serial number (e.g. 260404555)"
         }
+      },
+      "confirm": {
+        "title": "Eway solar micro-inverter",
+        "description": "Add the inverter {model} with serial number {serial}? Its telemetry is already arriving on this broker."
       }
     },
     "error": {
@@ -15,7 +20,8 @@
     },
     "abort": {
       "mqtt_unavailable": "The MQTT integration is not configured. Set it up first.",
-      "already_configured": "This inverter is already configured."
+      "already_configured": "This inverter is already configured.",
+      "invalid_discovery_info": "The message did not come from an inverter data topic."
     }
   }
 }

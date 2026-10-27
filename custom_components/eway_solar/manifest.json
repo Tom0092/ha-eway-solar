@@ -8,6 +8,7 @@
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Dreadmond/ha-eway-solar/issues",
+  "mqtt": ["/+/+/data/post"],
   "requirements": [],
   "version": "0.2.0"
 }

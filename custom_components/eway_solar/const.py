@@ -12,6 +12,7 @@ CONF_SERIAL = "serial"
 # "/<model>/<serial>/data/post", which MQTT treats as five levels with an empty
 # first one, so "+/+/data/post" (four levels) never matches. Caught only by
 # testing against a real inverter.
+# manifest.json subscribes to the same topic for MQTT discovery.
 DISCOVERY_TOPIC = "/+/+/data/post"
 
 

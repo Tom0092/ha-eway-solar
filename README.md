@@ -87,11 +87,16 @@ Either power-cycle it, or drop its TCP state at the router
 
 ### 4. Add the integration
 
-HACS → Custom repositories → this repo → Integration. Then
-Settings → Devices & Services → Add Integration → **Eway Solar**.
+HACS → Custom repositories → this repo → Integration, then restart Home
+Assistant.
 
-It listens on `+/+/data/post` and discovers the model and serial itself; you
-should not need to type anything. If discovery times out the inverter is not
+Once the inverter reaches your broker it shows up under Settings → Devices &
+Services → **Discovered**; confirm it there. Several inverters on one broker
+each turn up on their own.
+
+Settings → Devices & Services → Add Integration → **Eway Solar** works too: it
+listens on `/+/+/data/post` and picks up the model and serial itself, skipping
+inverters you have already added. If nothing turns up, the inverter is not
 reaching your broker — revisit step 3.
 
 ## ⚠️ This stops the Easy PV app working
