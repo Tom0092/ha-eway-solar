@@ -1,0 +1,27 @@
+{
+  "config": {
+    "flow_title": "Eway {model} ({serial})",
+    "step": {
+      "user": {
+        "title": "Eway Solar-Mikrowechselrichter",
+        "description": "Auf `{topic}` wurde auf Telemetrie gewartet. Kam nichts an, sendet der Wechselrichter noch nicht an diesen Broker – prüfe die DNS-Umleitung aus der README – oder trage Modell und Seriennummer aus der Easy-PV-App (Gerätedetails) von Hand ein.",
+        "data": {
+          "model": "Gerätemodell (z. B. VN2T08EU-016212C)",
+          "serial": "Seriennummer (z. B. 260404555)"
+        }
+      },
+      "confirm": {
+        "title": "Eway Solar-Mikrowechselrichter",
+        "description": "Wechselrichter {model} mit der Seriennummer {serial} hinzufügen? Seine Telemetrie kommt bereits an diesem Broker an."
+      }
+    },
+    "error": {
+      "not_discovered": "Keine Telemetrie empfangen. Der Wechselrichter sendet noch nicht an diesen Broker."
+    },
+    "abort": {
+      "mqtt_unavailable": "Die MQTT-Integration ist nicht eingerichtet. Richte sie zuerst ein.",
+      "already_configured": "Dieser Wechselrichter ist bereits eingerichtet.",
+      "invalid_discovery_info": "Die Nachricht kam nicht vom Daten-Topic eines Wechselrichters."
+    }
+  }
+}
