@@ -76,3 +76,7 @@ DEVICE_SENSORS = {
 # they are just too low, which is the worst way for it to be wrong.
 # Everything else in DEVICE_SENSORS really is identical across channels.
 SUMMED_DEVICE_FIELDS = {"genPowerToDay", "genPowerTotal"}
+
+# How many of the latest messages the diagnostics download includes. About
+# ten minutes' worth, enough to see the counters fall to zero at dusk.
+RECENT_MESSAGES = 10
