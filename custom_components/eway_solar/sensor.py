@@ -13,9 +13,10 @@ import logging
 from homeassistant.components import mqtt
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -24,6 +25,7 @@ from .const import (
     CONF_SERIAL,
     DEVICE_SENSORS,
     DOMAIN,
+    OFFLINE_AFTER,
     SUMMED_DEVICE_FIELDS,
     data_topic,
     describe_fault,
@@ -55,9 +57,18 @@ async def async_setup_entry(
     known_channels: set[int] = set()
     daily: dict[int, DailyYield] = {}
     lifetime: dict[int, float] = {}
+    cancel_quiet: CALLBACK_TYPE | None = None
+
+    @callback
+    def _went_quiet(_now) -> None:
+        nonlocal cancel_quiet
+        cancel_quiet = None
+        for ent in entities.values():
+            ent.went_quiet()
 
     @callback
     def _on_message(msg: mqtt.ReceiveMessage) -> None:
+        nonlocal cancel_quiet
         _LOGGER.debug("message on %s (%d bytes)", msg.topic, len(msg.payload or b""))
         try:
             payload = json.loads(msg.payload)
@@ -68,6 +79,11 @@ async def async_setup_entry(
             payload = [payload]
         if not payload:
             return
+
+        # Every message puts off the point at which the inverter counts as quiet.
+        if cancel_quiet is not None:
+            cancel_quiet()
+        cancel_quiet = async_call_later(hass, OFFLINE_AFTER, _went_quiet)
 
         # Channels appear the first time the inverter reports them, so a panel
         # added later shows up without reconfiguring anything.
@@ -163,6 +179,13 @@ async def async_setup_entry(
 
     unsub = await mqtt.async_subscribe(hass, topic, _on_message)
     entry.async_on_unload(unsub)
+
+    @callback
+    def _cancel_quiet() -> None:
+        if cancel_quiet is not None:
+            cancel_quiet()
+
+    entry.async_on_unload(_cancel_quiet)
     _LOGGER.debug("Subscribed to %s (unsub=%r)", topic, unsub)
 
 
@@ -208,7 +231,23 @@ class EwaySensor(SensorEntity):
         self._attr_native_value = None
 
     @callback
+    def went_quiet(self) -> None:
+        """The inverter has stopped publishing, which at dusk is all it does.
+
+        Power is then really zero rather than its last reading. The energy
+        counters and the operating time keep their value. Everything else is a
+        live reading that nothing measures any more, so it becomes unavailable.
+        """
+        if self.device_class == "power":
+            self.set_value(0)
+        elif self.state_class != "total_increasing" and self.device_class != "duration":
+            self._attr_available = False
+            if self.hass is not None:
+                self.async_write_ha_state()
+
+    @callback
     def set_value(self, value) -> None:
         self._attr_native_value = value
+        self._attr_available = True
         if self.hass is not None:
             self.async_write_ha_state()

@@ -1,4 +1,5 @@
 """Constants for the Eway solar micro-inverter integration."""
+from datetime import timedelta
 
 DOMAIN = "eway_solar"
 
@@ -18,6 +19,12 @@ DISCOVERY_TOPIC = "/+/+/data/post"
 
 def data_topic(model: str, serial: str) -> str:
     return f"/{model}/{serial}/data/post"
+
+
+# The inverter publishes about once a minute while the panels deliver, and at
+# dusk it simply stops, with no last message to say so. After this long
+# without one it is taken to have gone quiet.
+OFFLINE_AFTER = timedelta(minutes=10)
 
 
 # Per-MPPT-channel measurements. The device reports one JSON object per channel
